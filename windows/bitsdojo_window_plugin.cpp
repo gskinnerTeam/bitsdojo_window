@@ -78,7 +78,7 @@ namespace
     void BitsdojoWindowPlugin::HandleMethodCall(
         const flutter::MethodCall<flutter::EncodableValue> &method_call,
         std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result)
-    {        
+    {
         if (method_call.method_name().compare("dragAppWindow") == 0)
         {
             bool callResult = bitsdojo_window::dragAppWindow();

@@ -1,8 +1,11 @@
 library bitsdojo_window;
 
+import 'dart:io' show Platform;
 import 'package:flutter/widgets.dart';
 import './native_api.dart';
 import './window.dart';
+import './win32_window.dart';
+import './gtk_window.dart';
 
 void doWhenWindowReady(VoidCallback callback) {
   WidgetsBinding.instance.waitUntilFirstFrameRasterized.then((value) {
@@ -11,31 +14,22 @@ void doWhenWindowReady(VoidCallback callback) {
   });
 }
 
-var appWindow = AppWindow();
+var appWindow = _getAppWindow();
 const notInitializedMessage = """
- bitsdojo_window is not initalized.  
+ bitsdojo_window is not initalized.
  """;
 
 class BitsDojoNotInitializedException implements Exception {
   String errMsg() => notInitializedMessage;
 }
 
-class AppWindow extends Window {
-  AppWindow._() {
-    super.handle = getFlutterWindow();
-    AppState state = getAppState();
-    if (state == AppState.Unknown) {
-      print(notInitializedMessage);
-      throw BitsDojoNotInitializedException;
-    }
-    if (handle == null) {
-      print("Could not get Flutter window");
-    }
+Window _getAppWindow() {
+  int handle = getFlutterWindow();
+  if (handle == null || getAppState() == AppState.Unknown) {
+    throw BitsDojoNotInitializedException;
   }
-
-  static final AppWindow _instance = AppWindow._();
-
-  factory AppWindow() {
-    return _instance;
-  }
+  if (Platform.isWindows) return Win32Window(handle);
+  if (Platform.isLinux) return GtkWindow(handle);
+  // TODO: Add a dummy window to gracefully handle the error case where a window handle could not be
+  // retrieved
 }
