@@ -1,12 +1,13 @@
 import 'dart:ffi';
 import 'dart:ui';
 import 'package:flutter/painting.dart';
+import 'package:ffi/ffi.dart';
 
+import './gtk.dart';
 import './native_api.dart';
 import './window.dart';
 
-Rect _getMonitorRectForWindow(int handle) {
-}
+Rect _getMonitorRectForWindow(int handle) {}
 
 class GtkWindow extends Window {
   int _handle;
@@ -14,23 +15,37 @@ class GtkWindow extends Window {
   Size _maxSize;
   Alignment _alignment = Alignment.center;
 
-  /// *int handle* must be a valid win32 window handle
+  /// *int handle* must be a valid gtk window handle
   GtkWindow(int handle) : _handle = handle;
 
   @override
   Rect get rect {
-    Rect result;
+
+    Pointer<Int32> gtkRect = allocate(count: 4);
+
+    GtkWindowGetPosition(_handle, gtkRect.elementAt(0), gtkRect.elementAt(1));
+    GtkWindowGetSize(_handle, gtkRect.elementAt(2), gtkRect.elementAt(3));
+
+    Rect result = Rect.fromLTWH(
+        gtkRect[0].toDouble(),
+        gtkRect[1].toDouble(),
+        gtkRect[2].toDouble(),
+        gtkRect[3].toDouble());
+
+    free(gtkRect);
+
     return result;
   }
 
   @override
   set rect(Rect newRect) {
+    GtkWindowMove(_handle, newRect.left.toInt(), newRect.top.toInt());
+    GtkWindowResize(_handle, newRect.width.toInt(), newRect.height.toInt());
   }
 
   @override
   Size get size {
-    Size result;
-    return result;
+    return this.rect.size;
   }
 
   @override
@@ -46,24 +61,27 @@ class GtkWindow extends Window {
 
   @override
   int get dpi {
-    return 96;
+    return (96.0 * this.scaleFactor).toInt();
   }
 
   @override
   double get scaleFactor {
-    return this.dpi / 96.0;
+    final screen = GtkWindowGetScreen(_handle);
+    final display = GdkScreenGetDisplay(screen);
+    final monitor = GdkDisplayGetPrimaryMonitor(display);
+    return GdkMonitorGetScaleFactor(monitor).toDouble();
   }
 
   @override
   double get titleBarHeight {
     // NOTE: This might be difficult to retrieve from gtk
-    return 0.0;
+    return 32.0;
   }
 
   @override
   Size get titleBarButtonSize {
     // NOTE: This might be difficult to retrieve from gtk
-    Size result;
+    Size result = Size(32, 32);
     return result;
   }
 
@@ -130,7 +148,7 @@ class GtkWindow extends Window {
 
     Size sizeToSet = Size(width, height);
     if (_alignment == null) {
-      //SetWindowPos(_handle, 0, 0, 0, sizeToSet.width.toInt(), sizeToSet.height.toInt(), SWP_NOMOVE);
+      GtkWindowResize(_handle, sizeToSet.width.toInt(), sizeToSet.height.toInt());
     } else {
       var sizeOnScreen = getSizeOnScreen((sizeToSet));
       //_updatePositionForSize(sizeOnScreen);
@@ -139,26 +157,24 @@ class GtkWindow extends Window {
 
   @override
   bool get isMaximized {
-    return false;
+    return GtkWindowIsMaximized(_handle) == 1;
   }
 
   @override
   Offset get position {
-    var winRect = this.rect;
-    return Offset(winRect.left, winRect.top);
+    return this.rect.topLeft;
   }
 
   @override
   set position(Offset newPosition) {
+    GtkWindowMove(_handle, newPosition.dx.toInt(), newPosition.dy.toInt());
   }
 
   @override
-  void show() {
-  }
+  void show() {}
 
   @override
-  void hide() {
-  }
+  void hide() {}
 
   @override
   set visible(bool isVisible) {
@@ -171,18 +187,22 @@ class GtkWindow extends Window {
 
   @override
   void close() {
+    GtkWindowClose(_handle);
   }
 
   @override
   void maximize() {
+    GtkWindowMaximize(_handle);
   }
 
   @override
   void minimize() {
+    GtkWindowIconify(_handle);
   }
 
   @override
   void restore() {
+    GtkWindowUnmaximize(_handle);
   }
 
   @override
@@ -196,6 +216,8 @@ class GtkWindow extends Window {
 
   @override
   set title(String newTitle) {
+    final nativeString = Utf8.toUtf8(newTitle);
+    GtkWindowSetTitle(_handle, nativeString);
+    free(nativeString);
   }
-
 }

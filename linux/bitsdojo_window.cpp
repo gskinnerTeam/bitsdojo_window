@@ -4,18 +4,36 @@
 #include <flutter_linux/flutter_linux.h>
 #include <gtk/gtk.h>
 
-#include "include/bitsdojo_window/fl_bitsdojo_window_plugin.h"
+#include "include/bitsdojo_window/bitsdojo_window_plugin.h"
 
 extern FlBitsdojoWindowPlugin *pluginInst;
 
 BDW_API void bitsdojo_window_setMinSize(int width, int height) {
+	GdkGeometry geometry;
+	geometry.min_width = width;
+	geometry.min_height = height;
+
+	gtk_window_set_geometry_hints(
+			get_window(pluginInst),
+			nullptr,
+			&geometry,
+			static_cast<GdkWindowHints>(GDK_HINT_MIN_SIZE));
 }
 
 BDW_API void bitsdojo_window_setMaxSize(int width, int height) {
+	GdkGeometry geometry;
+	geometry.max_width = width;
+	geometry.max_height = height;
+
+	gtk_window_set_geometry_hints(
+			get_window(pluginInst),
+			nullptr,
+			&geometry,
+			static_cast<GdkWindowHints>(GDK_HINT_MAX_SIZE));
 }
 
 BDW_API uint8_t bitsdojo_window_getAppState() {
-	return 0;
+	return 2;
 }
 
 BDW_API void bitsdojo_window_setAppState(uint8_t appState) {
@@ -24,4 +42,3 @@ BDW_API void bitsdojo_window_setAppState(uint8_t appState) {
 BDW_API GtkWindow* bitsdojo_window_getFlutterWindow() {
 	return get_window(pluginInst);
 }
-

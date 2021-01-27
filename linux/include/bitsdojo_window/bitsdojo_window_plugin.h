@@ -26,16 +26,21 @@ G_BEGIN_DECLS
 #define FLUTTER_PLUGIN_EXPORT
 #endif
 
-G_DECLARE_FINAL_TYPE(FlBitsdojoWindowPlugin, fl_bitsdojo_window_plugin, FL,
+G_DECLARE_FINAL_TYPE(FlBitsdojoWindowPlugin, bitsdojo_window_plugin, FL,
                      BITSDOJO_WINDOW_PLUGIN, GObject)
 
 GtkWindow* get_window(FlBitsdojoWindowPlugin *self);
 
-FLUTTER_PLUGIN_EXPORT FlBitsdojoWindowPlugin* fl_window_size_plugin_new(
+FLUTTER_PLUGIN_EXPORT FlBitsdojoWindowPlugin* bitsdojo_window_plugin_new(
     FlPluginRegistrar* registrar);
 
-FLUTTER_PLUGIN_EXPORT void fl_bitsdojo_window_plugin_register_with_registrar(
+FLUTTER_PLUGIN_EXPORT void bitsdojo_window_plugin_register_with_registrar(
     FlPluginRegistrar* registrar);
+
+#define BDW_CUSTOM_FRAME    0x1
+#define BDW_HIDE_ON_STARTUP 0x2
+
+FLUTTER_PLUGIN_EXPORT int bitsdojo_window_configure(unsigned int flags);
 
 G_END_DECLS
 

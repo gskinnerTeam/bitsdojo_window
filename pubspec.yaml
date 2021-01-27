@@ -26,4 +26,4 @@ flutter:
       windows:
         pluginClass: BitsdojoWindowPlugin
       linux:
-        pluginClass: FlBitsdojoWindowPlugin
+        pluginClass: BitsdojoWindowPlugin

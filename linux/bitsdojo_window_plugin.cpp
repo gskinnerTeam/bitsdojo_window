@@ -11,14 +11,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "include/bitsdojo_window/fl_bitsdojo_window_plugin.h"
+#include "include/bitsdojo_window/bitsdojo_window_plugin.h"
 
 #include <cmath>
 #include <flutter_linux/flutter_linux.h>
 #include <gtk/gtk.h>
+#include <glib-object.h>
 
 const char kChannelName[] = "bitsdojo/window";
-const char kBadArgumentsError[] = "Invalid arguments";
 const char kDragAppWindowMethod[] = "dragAppWindow";
 
 struct _FlBitsdojoWindowPlugin {
@@ -30,39 +30,39 @@ struct _FlBitsdojoWindowPlugin {
   FlMethodChannel* channel;
 };
 
-G_DEFINE_TYPE(FlBitsdojoWindowPlugin, fl_bitsdojo_window_plugin, g_object_get_type())
+G_DEFINE_TYPE(FlBitsdojoWindowPlugin, bitsdojo_window_plugin, g_object_get_type())
 
 FlBitsdojoWindowPlugin *pluginInst = nullptr;
+unsigned int configurationFlags = 0;
 
 // Gets the window being controlled.
 GtkWindow* get_window(FlBitsdojoWindowPlugin* self) {
   FlView* view = fl_plugin_registrar_get_view(self->registrar);
   if (view == nullptr) return nullptr;
 
-  return GTK_WINDOW(gtk_widget_get_toplevel(GTK_WIDGET(view)));
+  GtkWindow* window = GTK_WINDOW(gtk_widget_get_toplevel(GTK_WIDGET(view)));
+  return window;
 }
 
 static FlMethodResponse* start_window_drag_at_position(FlBitsdojoWindowPlugin *self, FlValue *args) {
-  if (fl_value_get_type(args) != FL_VALUE_TYPE_LIST ||
-      fl_value_get_length(args) != 2) {
-    return FL_METHOD_RESPONSE(fl_method_error_response_new(
-        kBadArgumentsError, "Expected 2-element list", nullptr));
-  }
-  double x = fl_value_get_float(fl_value_get_list_value(args, 0));
-  double y = fl_value_get_float(fl_value_get_list_value(args, 1));
+	auto window = get_window(self);
+	auto screen = gtk_window_get_screen(window);
+	auto display = gdk_screen_get_display(screen);
+	auto seat = gdk_display_get_default_seat(display);
+	auto device = gdk_seat_get_pointer(seat);
 
-  auto window = get_window(self);
+	gint x, y;
+	gdk_device_get_position(device, nullptr, &x, &y);
 
-  gint winX, winY;
-  gtk_window_get_position(window, &winX, &winY);
+	gtk_window_begin_move_drag(window,
+			1,
+			x, y,
+			(guint32)g_get_monotonic_time()
+			);
 
-  gtk_window_begin_move_drag(window,
-		  1,
-		  winX + static_cast<gint>(x),
-		  winY + static_cast<gint>(y),
-		  static_cast<guint32>(g_get_real_time()));
+	gtk_widget_grab_focus(GTK_WIDGET(fl_plugin_registrar_get_view(self->registrar)));
 
-  return FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
+	return FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
 }
 
 // Called when a method call is received from Flutter.
@@ -85,28 +85,33 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
     g_warning("Failed to send method call response: %s", error->message);
 }
 
-static void fl_bitsdojo_window_plugin_dispose(GObject* object) {
+static void bitsdojo_window_plugin_dispose(GObject* object) {
   FlBitsdojoWindowPlugin* self = FL_BITSDOJO_WINDOW_PLUGIN(object);
 
   g_clear_object(&self->registrar);
   g_clear_object(&self->channel);
 
-  G_OBJECT_CLASS(fl_bitsdojo_window_plugin_parent_class)->dispose(object);
+  G_OBJECT_CLASS(bitsdojo_window_plugin_parent_class)->dispose(object);
 }
 
-static void fl_bitsdojo_window_plugin_class_init(FlBitsdojoWindowPluginClass* klass) {
-  G_OBJECT_CLASS(klass)->dispose = fl_bitsdojo_window_plugin_dispose;
+static void bitsdojo_window_plugin_class_init(FlBitsdojoWindowPluginClass* klass) {
+  G_OBJECT_CLASS(klass)->dispose = bitsdojo_window_plugin_dispose;
 }
 
-static void fl_bitsdojo_window_plugin_init(FlBitsdojoWindowPlugin* self) {
+static void bitsdojo_window_plugin_init(FlBitsdojoWindowPlugin* self) {
 	pluginInst = self;
 }
 
-FlBitsdojoWindowPlugin* fl_bitsdojo_window_plugin_new(FlPluginRegistrar* registrar) {
+FlBitsdojoWindowPlugin* bitsdojo_window_plugin_new(FlPluginRegistrar* registrar) {
   FlBitsdojoWindowPlugin* self = FL_BITSDOJO_WINDOW_PLUGIN(
-      g_object_new(fl_bitsdojo_window_plugin_get_type(), nullptr));
+      g_object_new(bitsdojo_window_plugin_get_type(), nullptr));
 
   self->registrar = FL_PLUGIN_REGISTRAR(g_object_ref(registrar));
+
+  // Set configuration status
+  if (configurationFlags & BDW_CUSTOM_FRAME) {
+	  gtk_window_set_decorated(get_window(self), false);
+  }
 
   g_autoptr(FlStandardMethodCodec) codec = fl_standard_method_codec_new();
   self->channel =
@@ -118,7 +123,13 @@ FlBitsdojoWindowPlugin* fl_bitsdojo_window_plugin_new(FlPluginRegistrar* registr
   return self;
 }
 
-void fl_bitsdojo_window_plugin_register_with_registrar(FlPluginRegistrar* registrar) {
-  FlBitsdojoWindowPlugin* plugin = fl_bitsdojo_window_plugin_new(registrar);
+void bitsdojo_window_plugin_register_with_registrar(FlPluginRegistrar* registrar) {
+  FlBitsdojoWindowPlugin* plugin = bitsdojo_window_plugin_new(registrar);
   g_object_unref(plugin);
 }
+
+int bitsdojo_window_configure(unsigned int flags) {
+	configurationFlags = flags;
+	return 1;
+}
+
